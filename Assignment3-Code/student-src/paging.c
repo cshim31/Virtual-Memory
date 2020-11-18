@@ -37,8 +37,24 @@ void system_init(void) {
      * frames in memory. The frame table will be useful later if we need to
      * evict pages during page faults.
      */
-    frame_table = (*fte_t)malloc(sizeof(fte_t) * NUM_FRAMES);
-    for(int i = 0; i < NUM_FRAMES; i++) frame_table[i].process = (*pcb_t)malloc(sizeof(pcb_t) * NUM_PAGES);
+     // each frame contains page size of data
+     // protected, mapped, referenced, process, vpn
+    frame_table = mem;
+    for(int i = 0; i < NUM_FRAMES; i++) {
+        /*
+        *(mem + i * PAGE_SIZE).protected = 0;
+        *(mem + i * PAGE_SIZE).mapped = 0;
+        *(mem + i * PAGE_SIZE).referenced = 0;
+        *(mem + i * PAGE_SIZE).process = 0;
+        *(mem + i * PAGE_SIZE).vpn = 0;
+        */
+        frame_table[i].protected = 0;
+        frame_table[i].mapped = 0;
+        frame_table[i].referenced = 0;
+        frame_table[i].process = 0;
+        frame_table[i].vpn = 0;
+    }
+
     /*
      * 2. Mark the first frame table entry as protected.
      *
@@ -46,7 +62,7 @@ void system_init(void) {
      * however, there are some frames we never want to evict.
      * We mark these special pages as "protected" to indicate this.
      */
-     frame_table[0].protected = 1;
+     frame_table[0].protected = 0;
 
 }
 
@@ -70,7 +86,7 @@ void proc_init(pcb_t *proc) {
      * this process's page table. You should zero-out the memory.
      */
     pfn_t frame = free_frame();
-
+    memset(frame, 0, PAGE_SIZE);
     /*
      * 2. Update the process's PCB with the frame number
      * of the newly allocated page table.
@@ -78,8 +94,8 @@ void proc_init(pcb_t *proc) {
      * Additionally, mark the frame's frame table entry as protected. You do not
      * want your page table to be accidentally evicted.
      */
-     
-
+    proc->saved_ptbr = frame;
+    frame_table[frame].protected = 1;
 }
 
 /*  --------------------------------- PROBLEM 4 --------------------------------------
@@ -94,7 +110,7 @@ void proc_init(pcb_t *proc) {
     -----------------------------------------------------------------------------------
  */
 void context_switch(pcb_t *proc) {
-
+    current_process = proc;
 }
 
 /*  --------------------------------- PROBLEM 5 --------------------------------------
@@ -127,15 +143,16 @@ void context_switch(pcb_t *proc) {
     -----------------------------------------------------------------------------------
  */
 uint8_t mem_access(vaddr_t address, char rw, uint8_t data) {
-
-
     /* Split the address and find the page table entry */
-
-
+    vpn_t vpn = vaddr_vpn(address);
+    uint16_t offset = vaddr_offset(address);
+    pte_t* page_table = mem + PAGE_SIZE * PTBR;
+    pte_t* PTE = page_table + vpn;
     /* If an entry is invalid, just page fault to allocate a page for the page table. */
-
+    if(PTE->valid == 0) page_fault(address);
 
     /* Set the "referenced" bit to reduce the page's likelihood of eviction */
+    frame_table[PTE->pfn].referenced = 1;
 
 
     /*
@@ -150,14 +167,15 @@ uint8_t mem_access(vaddr_t address, char rw, uint8_t data) {
         table entry.
     */
 
-
+    paddr_t* physical_address = PTE->pfn + offset;
     /* Either read or write the data to the physical address
        depending on 'rw' */
     if (rw == 'r') {
-
+        return *(uint8_t)physical_address;
     } else {
-
+        *physical_address = data;
     }
+    return data;
 }
 
 /*  --------------------------------- PROBLEM 8 --------------------------------------
@@ -174,12 +192,14 @@ uint8_t mem_access(vaddr_t address, char rw, uint8_t data) {
 */
 void proc_cleanup(pcb_t *proc) {
     /* Look up the process's page table */
-
+    pfn_t ptbr = proc->saved_ptbr;
     /* Iterate the page table and clean up each valid page */
     for (size_t i = 0; i < NUM_PAGES; i++) {
-
+        (mem + PAGE_SIZE * ptbr * i)->valid = 0;
     }
 
     /* Free the page table itself in the frame table */
-
+    for (size_t i = 0; i < NUM_PAGES; i++) {
+        memset((void*)(mem + PAGE_SIZE * ptbr), 0, PAGE_SIZE);
+    }
 }

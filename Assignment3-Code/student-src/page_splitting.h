@@ -15,13 +15,15 @@
     an elegant solution.
     -----------------------------------------------------------------------------------
  */
-
+/*
+first 10 - vpn
+last 14 - offset
+*/
 /* Get the virtual page number from a virtual address. */
 static inline vpn_t vaddr_vpn(vaddr_t addr) {
-    return addr / OFFSET_LEN;                   /* FIXME */
+    return addr / OFFSET_LEN;                  /* FIXME */
 }
-
 /* Get the offset into the page from a virtual address. */
 static inline uint16_t vaddr_offset(vaddr_t addr) {
-    return addr / OFFSET_LEN % PADDR_LEN;                   /* FIXME */
+    return addr % OFFSET_LEN;           /* FIXME */
 }

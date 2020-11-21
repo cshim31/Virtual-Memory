@@ -35,13 +35,21 @@ pfn_t free_frame(void) {
      * 2) If the entry is dirty, write it to disk with swap_write()
      * 3) Mark the original page table entry as invalid
      */
-    pte_t* page_table = mem + PAGE_SIZE * PTBR; 
-    if(frame_table[victim_pfn].mapped) {
-        vpn_t vpn = frame_table[victim_pfn].vpn;
-        if(page_table[vpn].dirty) swap_write(page_table[vpn], frame_table[victim_pfn]);
-        page_table[vpn].valid = 0;
-    }
+    
     /* If the victim is in use, we must evict it first */
+    if(frame_table[victim_pfn].mapped) {
+        pfn_t curr = frame_table[victim_pfn].process->saved_ptbr;
+        pte_t* page_table = (pte_t*) (mem + (curr * PAGE_SIZE));
+        pte_t* PTE = (pte_t*) (page_table + frame_table[victim_pfn].vpn);
+        if(PTE->dirty) {
+            void* change = (void*) (mem + victim_pfn * PAGE_SIZE);
+            swap_write(PTE, change);
+            stats.writebacks++;
+            PTE->dirty = 0;
+        }
+        PTE->valid = 0;
+        frame_table[victim_pfn].mapped = 0;
+    }
 
     /* Return the pfn */
     return victim_pfn;

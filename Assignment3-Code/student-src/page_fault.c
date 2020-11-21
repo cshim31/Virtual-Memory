@@ -29,8 +29,8 @@ void page_fault(vaddr_t address) {
     /* First, split the faulting address and locate the page table entry */
    vpn_t vpn = vaddr_vpn(address);
    uint16_t offset = vaddr_offset(address);
-   pte_t* page_table = (pte_t*) mem + PAGE_SIZE * PTBR;
-   pte_t* PTE = (pte_t*) page_table + vpn;
+   pte_t* page_table = (pte_t*) (mem + PAGE_SIZE * PTBR);
+   pte_t* PTE = (pte_t*) (page_table + vpn);
 
     /* It's a page fault, so the entry obviously won't be valid. Grab
        a frame to use by calling free_frame(). */
@@ -60,12 +60,11 @@ void page_fault(vaddr_t address) {
      * Otherwise, zero the page's memory. If the page is later written
      * back, swap_write() will automatically allocate a swap entry.
      */
-   void *newFrame = (void*)mem + freeFrame * PAGE_SIZE;
+   void *newFrame = (void*)(mem + freeFrame * PAGE_SIZE);
    if(swap_exists(PTE)) {
       swap_read(PTE, newFrame);
    }
    else {
-      memset(newFrame, 0, PAGE_SIZE);
-      swap_free(PTE);
+      memset(newFrame, 0,  PAGE_SIZE * sizeof(uint8_t));
    }
 }

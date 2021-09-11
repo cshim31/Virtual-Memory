@@ -1,2 +1,2 @@
 # Virtual-Memory
-ECE 3057 Project
+Georgia Tech ECE 3057: Virtual memory simulation
